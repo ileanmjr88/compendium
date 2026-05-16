@@ -1,0 +1,16 @@
+[compendium]
+name = "test-project"
+version = "0.1.0"
+min_compendium = "0.1.0"
+
+[registry]
+source = "public"
+
+[languages]
+node = "20.11.0"
+go = "1.24.1"
+c = "gcc@13.2.0"
+#cpp = "clang@17.0.6"
+
+[tools]
+cmake = "3.28.0"
