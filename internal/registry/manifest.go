@@ -28,10 +28,11 @@ type PlatformMap map[string]ArchMap
 type ArchMap map[string]Artifact
 
 type Artifact struct {
-	URL      string `json:"url"`
-	Checksum string `json:"checksum"`
-	Size     int64  `json:"size"`
-	Strip    int    `json:"strip"`
+	URL         string `json:"url"`
+	Checksum    string `json:"checksum"`
+	Size        int64  `json:"size"`
+	Strip       int    `json:"strip"`
+	LinkBinFrom string `json:"link_bin_from,omitempty"`
 }
 
 func (v *VersionEntry) UnmarshalJSON(data []byte) error {

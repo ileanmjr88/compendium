@@ -176,3 +176,135 @@ func TestDownloadVerify(t *testing.T) {
 		}
 	})
 }
+
+func TestDownloadVerifyLinkBinFrom(t *testing.T) {
+	t.Run("creates symlink to app-bundle bin", func(t *testing.T) {
+		tarData := createTarFromFiles(t, []tarFile{
+			{name: "CMake.app/Contents/bin/cmake", content: []byte("fake-binary"), mode: 0755},
+		})
+		setupDir := t.TempDir()
+		tarballPath := filepath.Join(setupDir, "test.tar.gz")
+		compressGzip(t, tarData, tarballPath)
+
+		tarballBytes, _ := os.ReadFile(tarballPath)
+		hash := sha256.Sum256(tarballBytes)
+		checksum := fmt.Sprintf("sha256:%x", hash)
+
+		files := &registryFiles{}
+		server := startTestServer(t, files, tarballPath)
+		defer server.Close()
+
+		files.index = buildIndex()
+		files.goFile = buildGoFile(server.URL, checksum, len(tarballBytes))
+		files.cmakeFile = buildCmakeFileWithLinkBin(server.URL, checksum, len(tarballBytes), "CMake.app/Contents/bin")
+
+		tmpDir := t.TempDir()
+		paths := env.NewPathsWithRoot(filepath.Join(tmpDir, "compendium"))
+		paths.EnsureDirs()
+
+		items := []InstallItem{
+			{Name: "cmake", Version: "3.28.1", Kind: "tools", Platform: runtime.GOOS, Arch: runtime.GOARCH},
+		}
+
+		if err := DownloadVerify(items, paths, newClientForTest(t, server.URL)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		destDir := paths.ToolDir("cmake", "3.28.1")
+		linkPath := filepath.Join(destDir, "bin")
+
+		info, err := os.Lstat(linkPath)
+		if err != nil {
+			t.Fatalf("Lstat %s: %v", linkPath, err)
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			t.Errorf("expected %s to be a symlink, got mode %v", linkPath, info.Mode())
+		}
+
+		target, err := os.Readlink(linkPath)
+		if err != nil {
+			t.Fatalf("Readlink %s: %v", linkPath, err)
+		}
+		if want := "CMake.app/Contents/bin"; target != want {
+			t.Errorf("symlink target = %q, want %q (relative)", target, want)
+		}
+
+		// The symlink must resolve end-to-end to the real binary.
+		resolvedBin := filepath.Join(linkPath, "cmake")
+		if _, err := os.Stat(resolvedBin); err != nil {
+			t.Errorf("Stat through symlink %s: %v", resolvedBin, err)
+		}
+	})
+
+	t.Run("errors when link_bin_from target missing after extract", func(t *testing.T) {
+		// Tarball does NOT contain CMake.app/, so the link target won't exist.
+		tarData := createTarFromFiles(t, []tarFile{
+			{name: "hello.txt", content: []byte("not a real install"), mode: 0644},
+		})
+		setupDir := t.TempDir()
+		tarballPath := filepath.Join(setupDir, "test.tar.gz")
+		compressGzip(t, tarData, tarballPath)
+
+		tarballBytes, _ := os.ReadFile(tarballPath)
+		hash := sha256.Sum256(tarballBytes)
+		checksum := fmt.Sprintf("sha256:%x", hash)
+
+		files := &registryFiles{}
+		server := startTestServer(t, files, tarballPath)
+		defer server.Close()
+
+		files.index = buildIndex()
+		files.goFile = buildGoFile(server.URL, checksum, len(tarballBytes))
+		files.cmakeFile = buildCmakeFileWithLinkBin(server.URL, checksum, len(tarballBytes), "CMake.app/Contents/bin")
+
+		tmpDir := t.TempDir()
+		paths := env.NewPathsWithRoot(filepath.Join(tmpDir, "compendium"))
+		paths.EnsureDirs()
+
+		items := []InstallItem{
+			{Name: "cmake", Version: "3.28.1", Kind: "tools", Platform: runtime.GOOS, Arch: runtime.GOARCH},
+		}
+
+		err := DownloadVerify(items, paths, newClientForTest(t, server.URL))
+		if err == nil {
+			t.Fatal("expected error when link_bin_from target is missing, got nil")
+		}
+	})
+
+	t.Run("errors when bin already exists in tarball", func(t *testing.T) {
+		// Tarball has BOTH a top-level bin/ and the app-bundle bin path —
+		// a manifest authoring bug we want to surface loudly.
+		tarData := createTarFromFiles(t, []tarFile{
+			{name: "bin/cmake", content: []byte("loose binary"), mode: 0755},
+			{name: "CMake.app/Contents/bin/cmake", content: []byte("real binary"), mode: 0755},
+		})
+		setupDir := t.TempDir()
+		tarballPath := filepath.Join(setupDir, "test.tar.gz")
+		compressGzip(t, tarData, tarballPath)
+
+		tarballBytes, _ := os.ReadFile(tarballPath)
+		hash := sha256.Sum256(tarballBytes)
+		checksum := fmt.Sprintf("sha256:%x", hash)
+
+		files := &registryFiles{}
+		server := startTestServer(t, files, tarballPath)
+		defer server.Close()
+
+		files.index = buildIndex()
+		files.goFile = buildGoFile(server.URL, checksum, len(tarballBytes))
+		files.cmakeFile = buildCmakeFileWithLinkBin(server.URL, checksum, len(tarballBytes), "CMake.app/Contents/bin")
+
+		tmpDir := t.TempDir()
+		paths := env.NewPathsWithRoot(filepath.Join(tmpDir, "compendium"))
+		paths.EnsureDirs()
+
+		items := []InstallItem{
+			{Name: "cmake", Version: "3.28.1", Kind: "tools", Platform: runtime.GOOS, Arch: runtime.GOARCH},
+		}
+
+		err := DownloadVerify(items, paths, newClientForTest(t, server.URL))
+		if err == nil {
+			t.Fatal("expected error when bin/ already exists, got nil")
+		}
+	})
+}

@@ -376,6 +376,24 @@ func TestVersionEntryNoDepends(t *testing.T) {
 	}
 }
 
+func TestVersionEntryLinkBinFromParsed(t *testing.T) {
+	body := []byte(`{
+		"darwin": {"arm64": {"url":"u","checksum":"c","size":1,"strip":1,"link_bin_from":"CMake.app/Contents/bin"}},
+		"linux":  {"amd64": {"url":"u2","checksum":"c2","size":2,"strip":1}}
+	}`)
+
+	var v VersionEntry
+	if err := json.Unmarshal(body, &v); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got, want := v.Platforms["darwin"]["arm64"].LinkBinFrom, "CMake.app/Contents/bin"; got != want {
+		t.Errorf("darwin/arm64.LinkBinFrom = %q, want %q", got, want)
+	}
+	if got := v.Platforms["linux"]["amd64"].LinkBinFrom; got != "" {
+		t.Errorf("linux/amd64.LinkBinFrom = %q, want empty (omitted)", got)
+	}
+}
+
 // ---------- subFileURL ----------
 
 func TestSubFileURLResolution(t *testing.T) {

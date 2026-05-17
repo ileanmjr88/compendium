@@ -109,3 +109,43 @@ func buildCmakeFile(serverURL, checksum string, size int) string {
 		}
 	}`, runtime.GOOS, runtime.GOARCH, serverURL, checksum, size)
 }
+
+func buildCmakeFileWithLinkBin(serverURL, checksum string, size int, linkBinFrom string) string {
+	return fmt.Sprintf(`{
+		"3.28.1": {
+			"%s": {
+				"%s": {"url":"%s/test.tar.gz","checksum":"%s","size":%d,"strip":0,"link_bin_from":"%s"}
+			}
+		}
+	}`, runtime.GOOS, runtime.GOARCH, serverURL, checksum, size, linkBinFrom)
+}
+
+type tarFile struct {
+	name    string
+	content []byte
+	mode    int64
+}
+
+// createTarFromFiles produces an uncompressed tar archive containing the given
+// regular files. Parent directories are written implicitly: untar's MkdirAll
+// handles them at extraction time, matching how some real archives (CMake's
+// .app bundle, etc.) lay out nested paths without explicit dir entries.
+func createTarFromFiles(t *testing.T, files []tarFile) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for _, f := range files {
+		if err := tw.WriteHeader(&tar.Header{
+			Name: f.name,
+			Mode: f.mode,
+			Size: int64(len(f.content)),
+		}); err != nil {
+			t.Fatalf("tar header %s: %v", f.name, err)
+		}
+		if _, err := tw.Write(f.content); err != nil {
+			t.Fatalf("tar write %s: %v", f.name, err)
+		}
+	}
+	tw.Close()
+	return buf.Bytes()
+}
