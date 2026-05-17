@@ -183,6 +183,26 @@ func processItem(item InstallItem, client *registry.Client, tmpDir string, paths
 			return fmt.Errorf("installing %s: %w", item.Name, err)
 		}
 	}
+	if artifact.LinkBinFrom != "" {
+		target := filepath.Join(destDir, artifact.LinkBinFrom)
+		link := filepath.Join(destDir, "bin")
+
+		if info, err := os.Stat(target); err != nil || !info.IsDir() {
+			return fmt.Errorf("link_bin_from target %q missing or not a directory after extract", artifact.LinkBinFrom)
+		}
+
+		if _, err := os.Lstat(link); err == nil {
+			return fmt.Errorf("link_bin_from set but %s already exists after extract", link)
+		}
+
+		rel, err := filepath.Rel(filepath.Dir(link), target)
+		if err != nil {
+			return err
+		}
+		if err := os.Symlink(rel, link); err != nil {
+			return err
+		}
+	}
 	// Normalize: ensure tools have a bin/ directory
 	if item.Kind == "tools" {
 		binDir := filepath.Join(destDir, "bin")
