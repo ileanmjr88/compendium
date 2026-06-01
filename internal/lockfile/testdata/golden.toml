@@ -1,0 +1,261 @@
+# Golden reference lockfile for the wordNebula project.
+# Canonical example exercising every part of the compendium.lock schema
+# (see internal/lockfile/lockfile.go). Hand-authored oracle: the lockfile
+# writer's output for wordNebula is compared against this file.
+
+[meta]
+schema = 1                       # lockfile schema version (lockfile.CurrentSchema)
+project = "wordNebula"
+compendium_version = "0.1.1"     # compendium binary that produced the lock
+# Union of every locked item's available platforms. Individual items may cover
+# fewer (e.g. clang below has no darwin-amd64 build).
+platforms = ["linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"]
+
+[meta.registry]
+source = "public"
+index_version = "2"              # registry index.json "version" at lock time
+
+# spec = the request string from compendium.toml (e.g. "clang@22.1.2");
+# version = the resolved version; source = where it came from (registry).
+# clang 22.1.2 ships only 3 platforms: LLVM publishes no darwin-amd64
+# (Intel macOS) build, so this item is missing from the union above.
+[[language]]
+name = "cpp"
+version = "22.1.2"
+spec = "clang@22.1.2"
+source = "registry"
+
+[[language.artifacts]]
+platform = "linux"
+arch = "amd64"
+url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.2/LLVM-22.1.2-Linux-X64.tar.xz"
+checksum = "sha256:ff32497b6801267ee427bc69cdaeecfb2d19578af8c2a942e864c45215f9a2ac"
+size = 1939541864
+strip = 1                        # tar strip-components applied on extract
+
+[[language.artifacts]]
+platform = "linux"
+arch = "arm64"
+url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.2/LLVM-22.1.2-Linux-ARM64.tar.xz"
+checksum = "sha256:cf2e84d965a95954971cafc71d18c0eb38e723c3ac7276286fd5636df4374b3a"
+size = 1770442424
+strip = 1
+
+[[language.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.2/LLVM-22.1.2-macOS-ARM64.tar.xz"
+checksum = "sha256:7b290ec4529c309b6b952d64a3513595c816dff1c217d54466a586d6e35dcec9"
+size = 1479868856
+strip = 1
+
+[[language]]
+name = "python"
+version = "3.11.15"
+spec = "3.11.15"
+source = "registry"
+
+[[language.artifacts]]
+platform = "linux"
+arch = "amd64"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260408/cpython-3.11.15%2B20260408-x86_64-unknown-linux-gnu-install_only.tar.gz"
+checksum = "sha256:042f73e6c93ded994dda8e09502c7fb6d50cbe6155bbb9fafc8899697df592bc"
+size = 49321612
+strip = 1
+
+[[language.artifacts]]
+platform = "linux"
+arch = "arm64"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260408/cpython-3.11.15%2B20260408-aarch64-unknown-linux-gnu-install_only.tar.gz"
+checksum = "sha256:91a98fbebda1bcbce4d1101471f0ff2601b648c6b6e66a1bc0d771dc66b0d748"
+size = 49354514
+strip = 1
+
+[[language.artifacts]]
+platform = "darwin"
+arch = "amd64"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260408/cpython-3.11.15%2B20260408-x86_64-apple-darwin-install_only.tar.gz"
+checksum = "sha256:f81261d6b0d9c705ee467c4744a64e4f969c72532a02c4fbbb8b112db5e53a83"
+size = 20077255
+strip = 1
+
+[[language.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260408/cpython-3.11.15%2B20260408-aarch64-apple-darwin-install_only.tar.gz"
+checksum = "sha256:51991c3afbea596e5bab47138a05c56e680597d054caaed78eb6bd1040403220"
+size = 20088866
+strip = 1
+
+[[tool]]
+name = "cmake"
+version = "4.3.1"
+spec = "4.3.1"
+source = "registry"
+
+[[tool.artifacts]]
+platform = "linux"
+arch = "amd64"
+url = "https://github.com/Kitware/CMake/releases/download/v4.3.1/cmake-4.3.1-linux-x86_64.tar.gz"
+checksum = "sha256:208d76804009cbe8ec9aea0aa052c857c6e59bd289b43b9941c99324dc78b1d8"
+size = 64022632
+strip = 1
+
+[[tool.artifacts]]
+platform = "linux"
+arch = "arm64"
+url = "https://github.com/Kitware/CMake/releases/download/v4.3.1/cmake-4.3.1-linux-aarch64.tar.gz"
+checksum = "sha256:2c0eca48ac7d0e3a8b4120b801d48903b0630c8ff1e73c44a90398a300dec1ac"
+size = 51268009
+strip = 1
+
+# macOS CMake ships a universal binary, so darwin amd64 and arm64 share the
+# same artifact. link_bin_from = subpath inside the .app bundle to link bins from.
+[[tool.artifacts]]
+platform = "darwin"
+arch = "amd64"
+url = "https://github.com/Kitware/CMake/releases/download/v4.3.1/cmake-4.3.1-macos-universal.tar.gz"
+checksum = "sha256:c21fe4ade82a6a236aae0b9fbd8263c7ac6824a3fb32d03594456e30b06f3b7f"
+size = 87032455
+strip = 1
+link_bin_from = "CMake.app/Contents/bin"
+
+[[tool.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://github.com/Kitware/CMake/releases/download/v4.3.1/cmake-4.3.1-macos-universal.tar.gz"
+checksum = "sha256:c21fe4ade82a6a236aae0b9fbd8263c7ac6824a3fb32d03594456e30b06f3b7f"
+size = 87032455
+strip = 1
+link_bin_from = "CMake.app/Contents/bin"
+
+[[tool]]
+name = "ninja"
+version = "1.13.2"
+spec = "1.13.2"
+source = "registry"
+
+# ninja ships a single bare binary in each zip, so strip = 0 (nothing to peel).
+[[tool.artifacts]]
+platform = "linux"
+arch = "amd64"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux.zip"
+checksum = "sha256:5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"
+size = 134040
+strip = 0
+
+[[tool.artifacts]]
+platform = "linux"
+arch = "arm64"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux-aarch64.zip"
+checksum = "sha256:fd2cacc8050a7f12a16a2e48f9e06fca5c14fc4c2bee2babb67b58be17a607fc"
+size = 126256
+strip = 0
+
+# darwin amd64 and arm64 share the same universal ninja-mac.zip.
+[[tool.artifacts]]
+platform = "darwin"
+arch = "amd64"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip"
+checksum = "sha256:c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b"
+size = 314051
+strip = 0
+
+[[tool.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip"
+checksum = "sha256:c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b"
+size = 314051
+strip = 0
+
+[[tool]]
+name = "vcpkg"
+version = "2026-02-21"
+spec = "2026-02-21"
+source = "registry"
+
+[[tool.artifacts]]
+platform = "linux"
+arch = "amd64"
+url = "https://github.com/ileanmjr88/compendium-registry/releases/download/vcpkg-2026-02-21/vcpkg-2026-02-21-linux-amd64.tar.gz"
+checksum = "sha256:0a5e0e9f8e89a677752fbcba81bfe30b37cb0aae38fca0a28780bc0d82a2649f"
+size = 7914819
+strip = 1
+
+[[tool.artifacts]]
+platform = "linux"
+arch = "arm64"
+url = "https://github.com/ileanmjr88/compendium-registry/releases/download/vcpkg-2026-02-21/vcpkg-2026-02-21-linux-arm64.tar.gz"
+checksum = "sha256:bf2b0ffdbe9abcea6ec9e3dc1a576ff1e45678d4dc8168c168e52324bdc0f23d"
+size = 7828922
+strip = 1
+
+[[tool.artifacts]]
+platform = "darwin"
+arch = "amd64"
+url = "https://github.com/ileanmjr88/compendium-registry/releases/download/vcpkg-2026-02-21/vcpkg-2026-02-21-darwin-amd64.tar.gz"
+checksum = "sha256:a2779ddddd5dc9f9aa71a94a97568195a4f77226d55692876719b121fa21c875"
+size = 9221247
+strip = 1
+
+[[tool.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://github.com/ileanmjr88/compendium-registry/releases/download/vcpkg-2026-02-21/vcpkg-2026-02-21-darwin-arm64.tar.gz"
+checksum = "sha256:327879d841c68e9b1657583f286ebf79770994c32e6e22beb22617edd1a5c0df"
+size = 9221245
+strip = 1
+
+[[tool]]
+name = "ccache"
+version = "4.12.3"
+spec = "4.12.3"
+source = "registry"
+
+[[tool.artifacts]]
+platform = "linux"
+arch = "amd64"
+url = "https://github.com/ccache/ccache/releases/download/v4.12.3/ccache-4.12.3-linux-x86_64.tar.xz"
+checksum = "sha256:a99aa455873c978f6905f07e3176cfdf48bb610990c23ce0e1b718da0f38faa7"
+size = 1291452
+strip = 1
+
+[[tool.artifacts]]
+platform = "linux"
+arch = "arm64"
+url = "https://github.com/ccache/ccache/releases/download/v4.12.3/ccache-4.12.3-linux-aarch64.tar.xz"
+checksum = "sha256:3ac9c7dc17414aa3b731a8c3bf9a3f785153048efbb597656e2827edb5eac936"
+size = 1156328
+strip = 1
+
+# darwin amd64 and arm64 share the same universal ccache-4.12.3-darwin.tar.gz.
+[[tool.artifacts]]
+platform = "darwin"
+arch = "amd64"
+url = "https://github.com/ccache/ccache/releases/download/v4.12.3/ccache-4.12.3-darwin.tar.gz"
+checksum = "sha256:4803a2e888ead60296ba4690f9ba68823a2eda66e8d8aaf216e007bdfa1b3ffb"
+size = 2073447
+strip = 1
+
+[[tool.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://github.com/ccache/ccache/releases/download/v4.12.3/ccache-4.12.3-darwin.tar.gz"
+checksum = "sha256:4803a2e888ead60296ba4690f9ba68823a2eda66e8d8aaf216e007bdfa1b3ffb"
+size = 2073447
+strip = 1
+
+# Per-ecosystem manifest references. digest = sha256 of the lockfile file's
+# bytes; baseline = vcpkg builtin-baseline git commit (pip has no baseline).
+[packages]
+[[packages.lockfile]]
+ecosystem = "vcpkg"
+path = "vcpkg.json"
+digest = "sha256:87eae5c0f15eb4e05a47689e64da9396257cc51709e1521ff2217280d95c1a1f"
+baseline = "23dc124705fcac41cf35c33dd9541f5094a9c19f"
+
+[[packages.lockfile]]
+ecosystem = "pip"
+path = "requirements.txt"
+digest = "sha256:76efa776ff7d070058cc285da961d269958cecf558d83c1b76e353c2e569e6d5"
