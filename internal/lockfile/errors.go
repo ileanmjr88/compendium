@@ -4,6 +4,18 @@ import (
 	"fmt"
 )
 
+type SchemaVersionError struct {
+	Path  string // lockfile path, for context
+	Found int    // schema declared in the file
+	Max   int    // CurrentSchema
+}
+
+func (e *SchemaVersionError) Error() string {
+	return fmt.Sprintf(
+		"%s: lockfile schema %d in newer supported schema %d; upgrade compendium",
+		e.Path, e.Found, e.Max)
+}
+
 type ValidationError struct {
 	Field   string
 	Value   string
