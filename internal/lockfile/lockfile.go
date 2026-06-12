@@ -1,3 +1,4 @@
+// Package lockfile loads and validates compendium.lock files
 package lockfile
 
 const (
