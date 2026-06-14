@@ -1,0 +1,20 @@
+# Failure mode: meta.schema is newer than lockfile.CurrentSchema (1).
+# Load checks this before Validate and must return *SchemaVersionError.
+[meta]
+schema = 2
+project = "wordNebula"
+platforms = ["darwin-arm64"]
+
+[[language]]
+name = "go"
+version = "1.22.5"
+spec = "1.22"
+source = "registry"
+
+[[language.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://example.com/go.tar.gz"
+checksum = "sha256:abc123"
+size = 123
+strip = 1

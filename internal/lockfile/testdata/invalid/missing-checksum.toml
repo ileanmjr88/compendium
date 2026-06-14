@@ -1,0 +1,19 @@
+# Failure mode: artifact has no checksum (empty fails the sha256: prefix check).
+# Validate must return *ValidationError (checksum must have sha256: prefix).
+[meta]
+schema = 1
+project = "wordNebula"
+platforms = ["darwin-arm64"]
+
+[[language]]
+name = "go"
+version = "1.22.5"
+spec = "1.22"
+source = "registry"
+
+[[language.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://example.com/go.tar.gz"
+size = 123
+strip = 1

@@ -1,0 +1,34 @@
+# Failure mode: two [[language]] entries share the same name.
+# Validate must return *ValidationError (field "languages.name").
+[meta]
+schema = 1
+project = "wordNebula"
+platforms = ["darwin-arm64"]
+
+[[language]]
+name = "go"
+version = "1.22.5"
+spec = "1.22"
+source = "registry"
+
+[[language.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://example.com/go.tar.gz"
+checksum = "sha256:abc123"
+size = 123
+strip = 1
+
+[[language]]
+name = "go"
+version = "1.23.0"
+spec = "1.23"
+source = "registry"
+
+[[language.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://example.com/go2.tar.gz"
+checksum = "sha256:def456"
+size = 456
+strip = 1
