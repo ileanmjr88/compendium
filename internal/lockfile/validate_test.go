@@ -2,6 +2,7 @@ package lockfile
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 )
 
@@ -97,4 +98,45 @@ func TestValidationError(t *testing.T) {
 			t.Errorf("Error() = %q, want %q", got, want)
 		}
 	})
+}
+
+// TestLoadInvalidFixtures loads each fixture in testdata/invalid/ through Load
+// and asserts it is rejected with the expected typed error. This exercises the
+// real file path (parse + schema check + Validate), complementing TestValidate's
+// in-memory coverage.
+func TestLoadInvalidFixtures(t *testing.T) {
+	tests := []struct {
+		file      string
+		schemaErr bool // true: want *SchemaVersionError; false: want *ValidationError
+	}{
+		{"schema-too-new.toml", true},
+		{"duplicate-language-name.toml", false},
+		{"duplicate-platform-arch.toml", false},
+		{"missing-checksum.toml", false},
+		{"zero-size.toml", false},
+		{"non-sha256-checksum.toml", false},
+		{"unknown-source.toml", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.file, func(t *testing.T) {
+			_, err := Load(filepath.Join("testdata", "invalid", tt.file))
+			if err == nil {
+				t.Fatalf("Load(%s): expected error, got nil", tt.file)
+			}
+
+			if tt.schemaErr {
+				var sve *SchemaVersionError
+				if !errors.As(err, &sve) {
+					t.Fatalf("want *SchemaVersionError, got %T: %v", err, err)
+				}
+				return
+			}
+
+			var ve *ValidationError
+			if !errors.As(err, &ve) {
+				t.Fatalf("want *ValidationError, got %T: %v", err, err)
+			}
+		})
+	}
 }

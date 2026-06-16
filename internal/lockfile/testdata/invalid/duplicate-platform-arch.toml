@@ -1,0 +1,28 @@
+# Failure mode: one entry has two artifacts with the same (platform, arch).
+# Validate must return *ValidationError (duplicate (platform, arch)).
+[meta]
+schema = 1
+project = "wordNebula"
+platforms = ["darwin-arm64"]
+
+[[language]]
+name = "go"
+version = "1.22.5"
+spec = "1.22"
+source = "registry"
+
+[[language.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://example.com/go.tar.gz"
+checksum = "sha256:abc123"
+size = 123
+strip = 1
+
+[[language.artifacts]]
+platform = "darwin"
+arch = "arm64"
+url = "https://example.com/go-dupe.tar.gz"
+checksum = "sha256:def456"
+size = 456
+strip = 1
