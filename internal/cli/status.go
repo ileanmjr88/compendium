@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"errors"
 	"os"
+	"runtime"
 
 	"github.com/ileanmjr88/compendium/internal/config"
 	"github.com/ileanmjr88/compendium/internal/env"
 	"github.com/ileanmjr88/compendium/internal/installer"
+	"github.com/ileanmjr88/compendium/internal/lockfile"
 	"github.com/ileanmjr88/compendium/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -33,6 +36,31 @@ var statusCmd = &cobra.Command{
 			}
 		}
 
+		lock := &lockfile.Lockfile{}
+		lockExist := false
+		lfLoaded, err := lockfile.Load("compendium.lock")
+		switch {
+		case err == nil:
+			lock = lfLoaded
+			lockExist = true
+		case errors.Is(err, os.ErrNotExist):
+			// first run
+		default:
+			ui.Print(ui.Fail, "loading lockfile", err.Error())
+			os.Exit(1)
+		}
+
+		changes := lockfile.Diff(*cfg, lock, runtime.GOOS, runtime.GOARCH)
+		drifted := len(changes) > 0
+		if drifted {
+			if lockExist {
+				ui.Print(ui.Warning, "lockfile out of date", "run `compendium install`")
+			} else {
+				ui.Print(ui.Warning, "no lockfile", "run `compendium install`")
+			}
+			printChanges(changes)
+		}
+
 		paths, err := env.NewPaths()
 		if err != nil {
 			ui.Print(ui.Fail, "getting paths", err.Error())
@@ -42,6 +70,9 @@ var statusCmd = &cobra.Command{
 		items := installer.Resolve(*cfg)
 
 		if len(items) == 0 {
+			if drifted {
+				os.Exit(1)
+			}
 			ui.Print(ui.Success, "nothing to check", "")
 			return
 		}
@@ -56,13 +87,36 @@ var statusCmd = &cobra.Command{
 			}
 		}
 
-		if missing == 0 {
+		if !drifted && missing == 0 {
 			ui.Print(ui.Success, "environment in sync", "")
-		} else if missing > 0 {
-			ui.Print(ui.Warning, "environment out of sync", "run 'compendium install' to update")
-			os.Exit(1)
+			return
 		}
+		if missing > 0 {
+			ui.Print(ui.Warning, "environment out of sync", "run 'compendium install' to update")
+		}
+		os.Exit(1)
 	},
+}
+
+func printChanges(changes []lockfile.Change) {
+	for _, c := range changes {
+		section := "language"
+		switch c.Section {
+		case lockfile.SectionTool:
+			section = "tool"
+		case lockfile.SectionPackage:
+			section = "package"
+		}
+
+		switch c.Kind {
+		case lockfile.Added:
+			ui.Print(ui.Warning, section+" "+c.Name, "+ "+c.NewSpec)
+		case lockfile.Removed:
+			ui.Print(ui.Warning, section+" "+c.Name, "- "+c.OldSpec)
+		case lockfile.SpecChanged:
+			ui.Print(ui.Warning, section+" "+c.Name, c.OldSpec+" → "+c.NewSpec)
+		}
+	}
 }
 
 func init() {

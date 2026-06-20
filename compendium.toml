@@ -15,3 +15,4 @@ goreleaser = "2.15.4"
 
 [packages]
 go = "go.mod"
+
