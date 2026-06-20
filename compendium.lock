@@ -1,0 +1,59 @@
+# compendium.lock
+# AUTO-GENERATED. Do not edit by hand. Commit to version control.
+[meta]
+  schema = 1
+  project = 'compendium'
+  compendium_version = '0.1.1'
+  platforms = ['darwin-arm64']
+
+  [meta.registry]
+    source = 'registry'
+    index_version = '2'
+
+[[language]]
+  name = 'go'
+  spec = '1.26.1'
+  version = '1.26.1'
+  source = 'registry'
+
+  [[language.artifacts]]
+    platform = 'darwin'
+    arch = 'arm64'
+    url = 'https://go.dev/dl/go1.26.1.darwin-arm64.tar.gz'
+    checksum = 'sha256:353df43a7811ce284c8938b5f3c7df40b7bfb6f56cb165b150bc40b5e2dd541f'
+    size = 64654450
+    strip = 1
+
+[[tool]]
+  name = 'golangci-lint'
+  spec = '2.11.4'
+  version = '2.11.4'
+  source = 'registry'
+
+  [[tool.artifacts]]
+    platform = 'darwin'
+    arch = 'arm64'
+    url = 'https://github.com/golangci/golangci-lint/releases/download/v2.11.4/golangci-lint-2.11.4-darwin-arm64.tar.gz'
+    checksum = 'sha256:02db2a2dae8b26812e53b0688a6f617e3ef1f489790e829ea22862cf76945675'
+    size = 14572334
+    strip = 1
+
+[[tool]]
+  name = 'goreleaser'
+  spec = '2.15.4'
+  version = '2.15.4'
+  source = 'registry'
+
+  [[tool.artifacts]]
+    platform = 'darwin'
+    arch = 'arm64'
+    url = 'https://github.com/goreleaser/goreleaser/releases/download/v2.15.4/goreleaser_Darwin_arm64.tar.gz'
+    checksum = 'sha256:d9cd0978d64686eb54e53e9f08b400edc8b1f9034f98fca43ec7a3f641327081'
+    size = 24856987
+    strip = 0
+
+[packages]
+  [[packages.lockfile]]
+    ecosystem = 'go'
+    path = 'go.mod'
+    digest = ''

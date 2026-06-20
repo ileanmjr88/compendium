@@ -1,3 +1,4 @@
+// Package cli -> commands used by the developer to interact with compendium
 package cli
 
 import "github.com/spf13/cobra"

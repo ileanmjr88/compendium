@@ -9,24 +9,37 @@ import (
 
 func TestDiff(t *testing.T) {
 	tests := []struct {
-		name     string
-		intent   config.Config
-		resolved *Lockfile
-		want     []Change
+		name           string
+		intent         config.Config
+		resolved       *Lockfile
+		platform, arch string
+		want           []Change
 	}{
 		{
-			name: "no changes",
+			// Specs match AND the current platform is already covered → no change.
+			name:     "no changes",
+			platform: "linux",
+			arch:     "amd64",
 			intent: config.Config{
 				Languages: config.Languages{"go": "1.22"},
 				Tools:     config.Tools{"ripgrep": "14"},
 				Packages:  config.Packages{"pip": "requirements.txt"},
 			},
 			resolved: &Lockfile{
-				Languages: []Entry{{Name: "go", Spec: "1.22"}},
-				Tools:     []Entry{{Name: "ripgrep", Spec: "14"}},
+				Languages: []Entry{{Name: "go", Spec: "1.22", Artifacts: []Artifact{{Platform: "linux", Arch: "amd64"}}}},
+				Tools:     []Entry{{Name: "ripgrep", Spec: "14", Artifacts: []Artifact{{Platform: "linux", Arch: "amd64"}}}},
 				Packages:  PackagesSection{Lockfiles: []EcoLockRef{{Ecosystem: "pip", Path: "requirements.txt"}}},
 			},
 			want: nil,
+		},
+		{
+			// Spec matches but the lock has no artifact for this platform → union it in.
+			name:     "language platform missing",
+			platform: "linux",
+			arch:     "amd64",
+			intent:   config.Config{Languages: config.Languages{"go": "1.22"}},
+			resolved: &Lockfile{Languages: []Entry{{Name: "go", Spec: "1.22", Artifacts: []Artifact{{Platform: "darwin", Arch: "arm64"}}}}},
+			want:     []Change{{Name: "go", Section: SectionLanguage, Kind: PlatformMissing, NewSpec: "1.22"}},
 		},
 		{
 			name:     "language added",
@@ -92,7 +105,7 @@ func TestDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Diff(tt.intent, tt.resolved)
+			got := Diff(tt.intent, tt.resolved, tt.platform, tt.arch)
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("Diff() = %+v, want %+v", got, tt.want)
 			}
