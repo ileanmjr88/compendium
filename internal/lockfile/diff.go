@@ -18,9 +18,10 @@ const (
 type ChangeKind int
 
 const (
-	Added       ChangeKind = iota // 0
-	Removed                       // 1
-	SpecChanged                   // 2
+	Added           ChangeKind = iota // 0
+	Removed                           // 1
+	SpecChanged                       // 2
+	PlatformMissing                   // 3
 )
 
 type Change struct {
@@ -31,10 +32,10 @@ type Change struct {
 	NewSpec string
 }
 
-func Diff(intent config.Config, resolved *Lockfile) []Change {
+func Diff(intent config.Config, resolved *Lockfile, platform string, arch string) []Change {
 	var changes []Change
-	changes = append(changes, diffSection(SectionLanguage, intent.Languages, resolved.Languages)...)
-	changes = append(changes, diffSection(SectionTool, intent.Tools, resolved.Tools)...)
+	changes = append(changes, diffSection(SectionLanguage, intent.Languages, resolved.Languages, platform, arch)...)
+	changes = append(changes, diffSection(SectionTool, intent.Tools, resolved.Tools, platform, arch)...)
 	changes = append(changes, diffPackages(intent.Packages, resolved.Packages.Lockfiles)...)
 
 	// Deterministic order: sort by (Section, Name). Section is an int, so the
@@ -46,10 +47,10 @@ func Diff(intent config.Config, resolved *Lockfile) []Change {
 	return changes
 }
 
-func diffSection(selection Section, intent map[string]string, locked []Entry) []Change {
-	lockByName := make(map[string]string, len(locked))
+func diffSection(selection Section, intent map[string]string, locked []Entry, platform, arch string) []Change {
+	lockByName := make(map[string]Entry, len(locked))
 	for _, e := range locked {
-		lockByName[e.Name] = e.Spec
+		lockByName[e.Name] = e
 	}
 
 	var changes []Change
@@ -57,20 +58,23 @@ func diffSection(selection Section, intent map[string]string, locked []Entry) []
 	// Pass 1 — walk the toml (intent) map.
 	// not in lock  -> Added (only NewSpec)
 	// in lock, spec differs -> SpecChanged (both specs)
-	// in lock, spec equal    -> no change
+	// in lock, spec equal -> no change
 	for name, tomlSpec := range intent {
-		lockSpec, ok := lockByName[name]
-		if !ok {
+		e, ok := lockByName[name]
+		switch {
+		case !ok:
 			changes = append(changes, Change{Name: name, Section: selection, Kind: Added, NewSpec: tomlSpec})
-		} else if tomlSpec != lockSpec {
-			changes = append(changes, Change{Name: name, Section: selection, Kind: SpecChanged, OldSpec: lockSpec, NewSpec: tomlSpec})
+		case tomlSpec != e.Spec:
+			changes = append(changes, Change{Name: name, Section: selection, Kind: SpecChanged, OldSpec: e.Spec, NewSpec: tomlSpec})
+		case !hasArtifact(e, platform, arch):
+			changes = append(changes, Change{Name: name, Section: selection, Kind: PlatformMissing, NewSpec: e.Spec})
 		}
 	}
 
 	// Pass 2 — walk `locked`: name not in `intent` -> Removed (OldSpec only).
-	for name, lockSpec := range lockByName {
+	for name, e := range lockByName {
 		if _, ok := intent[name]; !ok {
-			changes = append(changes, Change{Name: name, Section: selection, Kind: Removed, OldSpec: lockSpec})
+			changes = append(changes, Change{Name: name, Section: selection, Kind: Removed, OldSpec: e.Spec})
 		}
 	}
 
@@ -111,4 +115,10 @@ func diffPackages(intent config.Packages, locked []EcoLockRef) []Change {
 	}
 
 	return changes
+}
+
+func hasArtifact(e Entry, platform, arch string) bool {
+	return slices.ContainsFunc(e.Artifacts, func(a Artifact) bool {
+		return a.Platform == platform && a.Arch == arch
+	})
 }

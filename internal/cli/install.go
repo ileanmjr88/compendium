@@ -2,15 +2,20 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 
+	"github.com/ileanmjr88/compendium/internal/buildinfo"
 	"github.com/ileanmjr88/compendium/internal/config"
 	"github.com/ileanmjr88/compendium/internal/env"
 	"github.com/ileanmjr88/compendium/internal/installer"
+	"github.com/ileanmjr88/compendium/internal/lockfile"
 	"github.com/ileanmjr88/compendium/internal/registry"
 	"github.com/ileanmjr88/compendium/internal/ui"
 	"github.com/spf13/cobra"
@@ -36,7 +41,29 @@ var installCmd = &cobra.Command{
 			ui.Print(ui.Warning, w, "")
 		}
 
-		// 2. Set up paths
+		// 2. Load the lock (empty on a first run, fail if corrupt) and diff the
+		// toml against it to see what changed.
+		lock := &lockfile.Lockfile{}
+		lockExisted := false
+		lfLoaded, err := lockfile.Load("compendium.lock")
+		switch {
+		case err == nil:
+			lock = lfLoaded
+			lockExisted = true
+		case errors.Is(err, os.ErrNotExist):
+			// no lock file → first run, keep the empty lock
+		default:
+			ui.Print(ui.Fail, "loading lockfile", err.Error())
+			os.Exit(1)
+		}
+
+		changes := lockfile.Diff(*cfg, lock, runtime.GOOS, runtime.GOARCH)
+		if frozen && len(changes) > 0 {
+			ui.Print(ui.Fail, "compendium.lock is out of date", "run `compendium install` to update it")
+			os.Exit(1)
+		}
+
+		// 3. Set up paths
 		paths, err := env.NewPaths()
 		if err != nil {
 			ui.Print(ui.Fail, "setting up paths", err.Error())
@@ -53,7 +80,7 @@ var installCmd = &cobra.Command{
 			cfg.Compendium.Name = filepath.Base(dir)
 		}
 
-		// 3. Resolve install items from config
+		// 4. Resolve install items from config
 		items := installer.Resolve(*cfg)
 
 		indexURL := registry.ResolveSource("public")
@@ -70,10 +97,10 @@ var installCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// 4. Filter out already installed
+		// 5. Filter out already installed
 		items = installer.FilterInstalled(items, paths)
 
-		// 5. Download, verify, and extract (skip if nothing to install)
+		// 6. Download, verify, and extract (skip if nothing to install)
 		if len(items) == 0 {
 			ui.Print(ui.Success, "languages/tools already installed", "")
 		} else {
@@ -83,12 +110,36 @@ var installCmd = &cobra.Command{
 			}
 		}
 
-		// 6. Set up project dirs (venvs, etc.) — always runs so project-level
+		// 7. Set up project dirs (venvs, etc.) — always runs so project-level
 		// state (venv version, go workspace) reflects the current config even
 		// when all languages/tools were already installed globally.
 		if err := ensureProjectDirs(*cfg, paths); err != nil {
 			ui.Print(ui.Fail, "creating project directories", err.Error())
 			os.Exit(1)
+		}
+
+		// 8. Update the lock only when something changed. A true no-op leaves the
+		// file untouched: no rewrite, no meta drift.
+		if len(changes) == 0 && lockExisted {
+			ui.Print(ui.Success, "lockfile up to date", "")
+		} else {
+			resolved, err := buildResolved(changes, client)
+			if err != nil {
+				ui.Print(ui.Fail, "resolving lockfile entries", err.Error())
+				os.Exit(1)
+			}
+			lock.Apply(changes, resolved)
+			// Rebuild meta (schema/project/version/registry) but preserve the
+			// grow-only platform set. buildMeta seeds only the current platform;
+			// folding it into what the lock already carried — from Apply and from
+			// other machines — keeps us from dropping platforms on every install.
+			meta := buildMeta(*cfg, client)
+			meta.Platforms = unionPlatforms(lock.Meta.Platforms, meta.Platforms)
+			lock.Meta = meta
+			if err := lockfile.Write("compendium.lock", lock); err != nil {
+				ui.Print(ui.Fail, "writing lockfile", err.Error())
+				os.Exit(1)
+			}
 		}
 
 		ui.Print(ui.Success, "environment ready", "")
@@ -169,6 +220,112 @@ func readVenvVersion(cfgPath string) (string, error) {
 	return "", fmt.Errorf("version not found in %s", cfgPath)
 }
 
+// buildResolved looks up the registry artifact for every Added/SpecChanged
+// change and converts it into a lockfile.Entry, grouped by section so
+// (*Lockfile).Apply can upsert each into the right slice. Removed changes need
+// no lookup. MVP records only the current platform's artifact; cross-platform
+// population is a follow-up.
+func buildResolved(changes []lockfile.Change, client *registry.Client) (lockfile.Resolved, error) {
+	res := lockfile.Resolved{
+		Languages: map[string]lockfile.Entry{},
+		Tools:     map[string]lockfile.Entry{},
+		Packages:  map[string]lockfile.EcoLockRef{},
+	}
+	platform, arch := runtime.GOOS, runtime.GOARCH
+
+	for _, c := range changes {
+		if c.Kind == lockfile.Removed {
+			continue // nothing to resolve for a removal
+		}
+
+		switch c.Section {
+		case lockfile.SectionLanguage, lockfile.SectionTool:
+			// Look up by the registry name/version parsed from the spec
+			// ("gcc@12.2.1" -> gcc, 12.2.1), but keep the config key as the
+			// entry Name and the raw value as Spec so Diff stays stable.
+			name, version := c.Name, c.NewSpec
+			if strings.Contains(c.NewSpec, "@") {
+				parts := strings.SplitN(c.NewSpec, "@", 2)
+				name, version = parts[0], parts[1]
+			}
+
+			kind := "languages"
+			if c.Section == lockfile.SectionTool {
+				kind = "tools"
+			}
+
+			art, _, err := client.Lookup(kind, name, version, platform, arch)
+			if err != nil {
+				return res, fmt.Errorf("looking up %s %q: %w", kind, c.Name, err)
+			}
+
+			entry := lockfile.Entry{
+				Name:    c.Name,
+				Spec:    c.NewSpec,
+				Version: version,
+				Source:  lockfile.SourceRegistry,
+				Artifacts: []lockfile.Artifact{{
+					Platform:    platform,
+					Arch:        arch,
+					URL:         art.URL,
+					Checksum:    art.Checksum,
+					Size:        art.Size,
+					Strip:       art.Strip,
+					LinkBinFrom: art.LinkBinFrom,
+				}},
+			}
+
+			if c.Section == lockfile.SectionLanguage {
+				res.Languages[c.Name] = entry
+			} else {
+				res.Tools[c.Name] = entry
+			}
+
+		case lockfile.SectionPackage:
+			// Ecosystem lockfiles aren't registry artifacts; record the path so
+			// the lock tracks the toml. Digest drift is out of scope (ION-16).
+			res.Packages[c.Name] = lockfile.EcoLockRef{
+				Ecosystem: c.Name,
+				Path:      c.NewSpec,
+			}
+		}
+	}
+
+	return res, nil
+}
+
+// buildMeta assembles the lock's [meta] block from the current config, the
+// running binary's version, and the resolved registry index version.
+func buildMeta(cfg config.Config, client *registry.Client) lockfile.Meta {
+	platform := runtime.GOOS + "-" + runtime.GOARCH // e.g. "darwin-arm64"
+	return lockfile.Meta{
+		Schema:            lockfile.CurrentSchema,
+		Project:           cfg.Compendium.Name,
+		CompendiumVersion: buildinfo.Version,
+		Platforms:         []string{platform},
+		Registry: lockfile.RegistryMeta{
+			Source:       lockfile.SourceRegistry,
+			IndexVersion: client.IndexVersion(),
+		},
+	}
+}
+
+// unionPlatforms appends any platform in `add` not already in `base`,
+// preserving order. Grow-only: platforms are never removed here — that is a
+// deliberate future command, not a side effect of install (see ION-16).
+func unionPlatforms(base, add []string) []string {
+	for _, p := range add {
+		if !slices.Contains(base, p) {
+			base = append(base, p)
+		}
+	}
+	return base
+}
+
+var frozen bool
+
 func init() {
 	rootCmd.AddCommand(installCmd)
+	installCmd.Flags().BoolVar(&frozen, "frozen", false, "fail if compendium.toml has drifted from compendium.lock")
+	installCmd.Flags().BoolVar(&frozen, "locked", false, "alias for --frozen")
 }

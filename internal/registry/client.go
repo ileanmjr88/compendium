@@ -100,6 +100,11 @@ func NewClient(indexURL string) (*Client, error) {
 	}, nil
 }
 
+// IndexVersion returns the version string from the fetched index manifest.
+func (c *Client) IndexVersion() string {
+	return c.index.Version
+}
+
 func (c *Client) Lookup(kind, name, version, platform, arch string) (*Artifact, map[string]string, error) {
 	// 1. Pick the right IndexEntry map
 	var entries map[string]IndexEntry
