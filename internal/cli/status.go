@@ -115,6 +115,8 @@ func printChanges(changes []lockfile.Change) {
 			ui.Print(ui.Warning, section+" "+c.Name, "- "+c.OldSpec)
 		case lockfile.SpecChanged:
 			ui.Print(ui.Warning, section+" "+c.Name, c.OldSpec+" → "+c.NewSpec)
+		case lockfile.PlatformMissing:
+			ui.Print(ui.Warning, section+" "+c.Name, runtime.GOOS+"/"+runtime.GOARCH+" missing")
 		}
 	}
 }
