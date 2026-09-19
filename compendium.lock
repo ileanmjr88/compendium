@@ -55,5 +55,6 @@
 [packages]
   [[packages.lockfile]]
     ecosystem = 'go'
-    path = 'go.mod'
-    digest = ''
+    path = 'go.sum'
+    digest = 'sha256:fbaf96328fe389b704bde0978e62f6f081f1a26b76a1a6439b9c0e9b21b92520'
+    covers = ['go.sum']

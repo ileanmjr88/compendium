@@ -50,7 +50,15 @@ var statusCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		changes := lockfile.Diff(*cfg, lock, runtime.GOOS, runtime.GOARCH)
+		// status reports, it never fails the build. An entry that could not be
+		// hashed is absent from the map, so Diff reports it as drift; print the
+		// underlying cause too so the user sees why, not just the symptom.
+		pkgs, err := resolvePackages(".", cfg.Packages)
+		if err != nil {
+			ui.Print(ui.Warning, "package lockfiles", err.Error())
+		}
+
+		changes := lockfile.Diff(*cfg, lock, pkgDigests(pkgs), runtime.GOOS, runtime.GOARCH)
 		drifted := len(changes) > 0
 		if drifted {
 			if lockExist {
@@ -117,6 +125,8 @@ func printChanges(changes []lockfile.Change) {
 			ui.Print(ui.Warning, section+" "+c.Name, c.OldSpec+" → "+c.NewSpec)
 		case lockfile.PlatformMissing:
 			ui.Print(ui.Warning, section+" "+c.Name, runtime.GOOS+"/"+runtime.GOARCH+" missing")
+		case lockfile.DigestChange:
+			ui.Print(ui.Warning, section+" "+c.Name, c.NewSpec+" changed")
 		}
 	}
 }

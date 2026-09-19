@@ -16,6 +16,7 @@ import (
 	"github.com/ileanmjr88/compendium/internal/env"
 	"github.com/ileanmjr88/compendium/internal/installer"
 	"github.com/ileanmjr88/compendium/internal/lockfile"
+	"github.com/ileanmjr88/compendium/internal/pkglock"
 	"github.com/ileanmjr88/compendium/internal/registry"
 	"github.com/ileanmjr88/compendium/internal/ui"
 	"github.com/spf13/cobra"
@@ -57,7 +58,16 @@ var installCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		changes := lockfile.Diff(*cfg, lock, runtime.GOOS, runtime.GOARCH)
+		// Hash every declared ecosystem lockfile before diffing: Diff compares
+		// these against what the lock recorded, and buildResolved writes the new
+		// values back. A missing or unreadable file is fatal during install.
+		pkgs, err := resolvePackages(".", cfg.Packages)
+		if err != nil {
+			ui.Print(ui.Fail, "checking package lockfiles", err.Error())
+			os.Exit(1)
+		}
+
+		changes := lockfile.Diff(*cfg, lock, pkgDigests(pkgs), runtime.GOOS, runtime.GOARCH)
 		if frozen && len(changes) > 0 {
 			ui.Print(ui.Fail, "compendium.lock is out of date", "run `compendium install` to update it")
 			os.Exit(1)
@@ -123,7 +133,7 @@ var installCmd = &cobra.Command{
 		if len(changes) == 0 && lockExisted {
 			ui.Print(ui.Success, "lockfile up to date", "")
 		} else {
-			resolved, err := buildResolved(changes, client)
+			resolved, err := buildResolved(changes, client, pkgs)
 			if err != nil {
 				ui.Print(ui.Fail, "resolving lockfile entries", err.Error())
 				os.Exit(1)
@@ -153,7 +163,7 @@ func ensureProjectDirs(cfg config.Config, paths *env.Paths) error {
 	if cfg.Languages["go"] != "" {
 		for _, sub := range []string{"go", "go/bin"} {
 			dir := filepath.Join(projectDir, sub)
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
 				return fmt.Errorf("creating go dir: %w", err)
 			}
 		}
@@ -190,7 +200,7 @@ func ensureProjectDirs(cfg config.Config, paths *env.Paths) error {
 	// vcpkg installed packages
 	if cfg.Packages["vcpkg"] != "" {
 		dir := filepath.Join(projectDir, "vcpkg-installed")
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("creating vcpkg-installed dir: %w", err)
 		}
 	}
@@ -225,7 +235,7 @@ func readVenvVersion(cfgPath string) (string, error) {
 // (*Lockfile).Apply can upsert each into the right slice. Removed changes need
 // no lookup. MVP records only the current platform's artifact; cross-platform
 // population is a follow-up.
-func buildResolved(changes []lockfile.Change, client *registry.Client) (lockfile.Resolved, error) {
+func buildResolved(changes []lockfile.Change, client *registry.Client, pkgs map[string]pkglock.Result) (lockfile.Resolved, error) {
 	res := lockfile.Resolved{
 		Languages: map[string]lockfile.Entry{},
 		Tools:     map[string]lockfile.Entry{},
@@ -282,16 +292,44 @@ func buildResolved(changes []lockfile.Change, client *registry.Client) (lockfile
 			}
 
 		case lockfile.SectionPackage:
-			// Ecosystem lockfiles aren't registry artifacts; record the path so
-			// the lock tracks the toml. Digest drift is out of scope (ION-16).
+			// Ecosystem lockfiles aren't registry artifacts. Their digests were
+			// already computed by resolvePackages before Diff ran, so this only
+			// records what that pass found.
+			r := pkgs[c.Name]
 			res.Packages[c.Name] = lockfile.EcoLockRef{
 				Ecosystem: c.Name,
 				Path:      c.NewSpec,
+				Digest:    r.Digest,
+				Covers:    r.Covers,
 			}
 		}
 	}
 
 	return res, nil
+}
+
+// pkgDigests narrows resolvePackages' output to what Diff needs: ecosystem ->
+// digest. Diff has no use for the covered-path list.
+func pkgDigests(pkgs map[string]pkglock.Result) map[string]string {
+	out := make(map[string]string, len(pkgs))
+	for eco, r := range pkgs {
+		out[eco] = r.Digest
+	}
+	return out
+}
+
+func resolvePackages(root string, pkgs config.Packages) (map[string]pkglock.Result, error) {
+	out := make(map[string]pkglock.Result, len(pkgs))
+	var errs []error
+	for eco, declared := range pkgs {
+		r, err := pkglock.Resolve(root, eco, declared)
+		if err != nil {
+			errs = append(errs, err)
+		} else {
+			out[eco] = r
+		}
+	}
+	return out, errors.Join(errs...)
 }
 
 // buildMeta assembles the lock's [meta] block from the current config, the

@@ -246,16 +246,25 @@ checksum = "sha256:4803a2e888ead60296ba4690f9ba68823a2eda66e8d8aaf216e007bdfa1b3
 size = 2073447
 strip = 1
 
-# Per-ecosystem manifest references. digest = sha256 of the lockfile file's
-# bytes; baseline = vcpkg builtin-baseline git commit (pip has no baseline).
+# Per-ecosystem lockfile references. digest = sha256 over the normalized bytes
+# of every file in covers, in that order (see internal/pkglock). path is what
+# compendium.toml declared; covers is what actually got hashed, and covers[0]
+# is always path.
+#
+# vcpkg spans two files: vcpkg.json declares builtin-baseline, but a sibling
+# vcpkg-configuration.json can override it with a default-registry baseline,
+# so hashing only the manifest would report "no change" while the resolved
+# package versions moved. Its digest is sha256(d1 || d2) over the two raw
+# digests, not over the concatenated file bytes.
 [packages]
 [[packages.lockfile]]
 ecosystem = "vcpkg"
 path = "vcpkg.json"
-digest = "sha256:87eae5c0f15eb4e05a47689e64da9396257cc51709e1521ff2217280d95c1a1f"
-baseline = "23dc124705fcac41cf35c33dd9541f5094a9c19f"
+digest = "sha256:b6e46ef9e1696a44b8ec3073cd56221e9fcbfa6ca2820eeaefe0f0dd534c61e7"
+covers = ["vcpkg.json", "vcpkg-configuration.json"]
 
 [[packages.lockfile]]
 ecosystem = "pip"
 path = "requirements.txt"
 digest = "sha256:76efa776ff7d070058cc285da961d269958cecf558d83c1b76e353c2e569e6d5"
+covers = ["requirements.txt"]
