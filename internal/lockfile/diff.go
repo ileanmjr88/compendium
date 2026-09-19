@@ -22,6 +22,7 @@ const (
 	Removed                           // 1
 	SpecChanged                       // 2
 	PlatformMissing                   // 3
+	DigestChange                      // 4
 )
 
 type Change struct {
@@ -32,11 +33,11 @@ type Change struct {
 	NewSpec string
 }
 
-func Diff(intent config.Config, resolved *Lockfile, platform string, arch string) []Change {
+func Diff(intent config.Config, resolved *Lockfile, digest map[string]string, platform string, arch string) []Change {
 	var changes []Change
 	changes = append(changes, diffSection(SectionLanguage, intent.Languages, resolved.Languages, platform, arch)...)
 	changes = append(changes, diffSection(SectionTool, intent.Tools, resolved.Tools, platform, arch)...)
-	changes = append(changes, diffPackages(intent.Packages, resolved.Packages.Lockfiles)...)
+	changes = append(changes, diffPackages(intent.Packages, resolved.Packages.Lockfiles, digest)...)
 
 	// Deterministic order: sort by (Section, Name). Section is an int, so the
 	// sections fall out as language < tool < package.
@@ -85,32 +86,35 @@ func diffSection(selection Section, intent map[string]string, locked []Entry, pl
 // lock's resolved ecosystem lockfile refs. It is keyed by ecosystem, and the
 // "spec" being compared is the manifest path.
 //
-// It deliberately does NOT detect digest drift (the lock's content hash): that
-// would require reading and hashing files on disk, and Diff must stay pure. A
-// changed lockfile with an unchanged path produces no Change here — catching
-// that drift is the installer's job, not Diff's.
-func diffPackages(intent config.Packages, locked []EcoLockRef) []Change {
-	lockByEco := make(map[string]string, len(locked))
+// Digest drift (an edited lockfile at an unchanged path) surfaces as
+// DigestChange. The hashes arrive precomputed in digests, keyed by ecosystem,
+// so Diff still reads nothing from disk and stays pure. A missing key compares
+// as the empty string and therefore reads as drift, so callers must supply an
+// entry for every [packages] ecosystem.
+func diffPackages(intent config.Packages, locked []EcoLockRef, digests map[string]string) []Change {
+	lockByEco := make(map[string]EcoLockRef, len(locked))
 	for _, l := range locked {
-		lockByEco[l.Ecosystem] = l.Path
+		lockByEco[l.Ecosystem] = l
 	}
 
 	var changes []Change
 
 	// Pass 1 — walk the toml map (ecosystem -> path).
 	for eco, path := range intent {
-		lockPath, ok := lockByEco[eco]
+		ref, ok := lockByEco[eco]
 		if !ok {
 			changes = append(changes, Change{Name: eco, Section: SectionPackage, Kind: Added, NewSpec: path})
-		} else if path != lockPath {
-			changes = append(changes, Change{Name: eco, Section: SectionPackage, Kind: SpecChanged, OldSpec: lockPath, NewSpec: path})
+		} else if path != ref.Path {
+			changes = append(changes, Change{Name: eco, Section: SectionPackage, Kind: SpecChanged, OldSpec: ref.Path, NewSpec: path})
+		} else if digests[eco] != ref.Digest {
+			changes = append(changes, Change{Name: eco, Section: SectionPackage, Kind: DigestChange, NewSpec: path})
 		}
 	}
 
 	// Pass 2 — walk the lock: ecosystem not in the toml -> Removed.
-	for eco, lockPath := range lockByEco {
+	for eco, ref := range lockByEco {
 		if _, ok := intent[eco]; !ok {
-			changes = append(changes, Change{Name: eco, Section: SectionPackage, Kind: Removed, OldSpec: lockPath})
+			changes = append(changes, Change{Name: eco, Section: SectionPackage, Kind: Removed, OldSpec: ref.Path})
 		}
 	}
 

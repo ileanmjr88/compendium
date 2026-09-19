@@ -59,7 +59,7 @@ func unsortedLockfile() Lockfile {
 		},
 		Packages: PackagesSection{
 			Lockfiles: []EcoLockRef{
-				{Ecosystem: "vcpkg", Path: "vcpkg.json", Digest: "sha256:v", Baseline: "abc123"},
+				{Ecosystem: "vcpkg", Path: "vcpkg.json", Digest: "sha256:v"},
 				{Ecosystem: "pip", Path: "requirements.txt", Digest: "sha256:r"},
 			},
 		},

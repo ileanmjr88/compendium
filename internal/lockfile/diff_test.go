@@ -12,6 +12,7 @@ func TestDiff(t *testing.T) {
 		name           string
 		intent         config.Config
 		resolved       *Lockfile
+		digests        map[string]string
 		platform, arch string
 		want           []Change
 	}{
@@ -78,11 +79,14 @@ func TestDiff(t *testing.T) {
 			want:     []Change{{Name: "pip", Section: SectionPackage, Kind: SpecChanged, OldSpec: "requirements.txt", NewSpec: "requirements-dev.txt"}},
 		},
 		{
-			// Digest drift (same path, changed Digest) must NOT surface — Diff is pure.
-			name:     "package digest drift ignored",
+			// Same path, but the file on disk hashed differently than the lock
+			// recorded → the lockfile was edited. Digests arrive precomputed, so
+			// Diff still does no I/O.
+			name:     "package digest drift",
 			intent:   config.Config{Packages: config.Packages{"pip": "requirements.txt"}},
+			digests:  map[string]string{"pip": "sha256:def"},
 			resolved: &Lockfile{Packages: PackagesSection{Lockfiles: []EcoLockRef{{Ecosystem: "pip", Path: "requirements.txt", Digest: "sha256:abc"}}}},
-			want:     nil,
+			want:     []Change{{Name: "pip", Section: SectionPackage, Kind: DigestChange, NewSpec: "requirements.txt"}},
 		},
 		{
 			// Output must be sorted by (Section, Name): languages, then tools, then
@@ -105,7 +109,7 @@ func TestDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Diff(tt.intent, tt.resolved, tt.platform, tt.arch)
+			got := Diff(tt.intent, tt.resolved, tt.digests, tt.platform, tt.arch)
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("Diff() = %+v, want %+v", got, tt.want)
 			}

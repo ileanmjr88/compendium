@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "wordnebula",
+  "version-string": "0.1.0",
+  "description": "A distraction-free terminal-based word processor",
+  "homepage": "https://github.com/ileanmjr88/wordNebula",
+  "license": "MIT",
+  "dependencies": [
+    "ncurses",
+    "ftxui",
+    "spdlog",
+    "gtest"
+  ],
+  "builtin-baseline": "23dc124705fcac41cf35c33dd9541f5094a9c19f"
+}

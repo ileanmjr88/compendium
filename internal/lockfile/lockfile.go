@@ -49,8 +49,8 @@ type PackagesSection struct {
 }
 
 type EcoLockRef struct {
-	Ecosystem string `toml:"ecosystem"`
-	Path      string `toml:"path"`
-	Digest    string `toml:"digest"`
-	Baseline  string `toml:"baseline,omitempty"`
+	Ecosystem string   `toml:"ecosystem"`
+	Path      string   `toml:"path"`
+	Digest    string   `toml:"digest"`
+	Covers    []string `toml:"covers,omitempty"`
 }
