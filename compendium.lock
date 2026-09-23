@@ -4,7 +4,7 @@
   schema = 1
   project = 'compendium'
   compendium_version = '0.1.1'
-  platforms = ['darwin-arm64']
+  platforms = ['darwin-arm64', 'linux-amd64']
 
   [meta.registry]
     source = 'registry'
@@ -24,6 +24,14 @@
     size = 64654450
     strip = 1
 
+  [[language.artifacts]]
+    platform = 'linux'
+    arch = 'amd64'
+    url = 'https://go.dev/dl/go1.26.1.linux-amd64.tar.gz'
+    checksum = 'sha256:031f088e5d955bab8657ede27ad4e3bc5b7c1ba281f05f245bcc304f327c987a'
+    size = 66791587
+    strip = 1
+
 [[tool]]
   name = 'golangci-lint'
   spec = '2.11.4'
@@ -38,6 +46,14 @@
     size = 14572334
     strip = 1
 
+  [[tool.artifacts]]
+    platform = 'linux'
+    arch = 'amd64'
+    url = 'https://github.com/golangci/golangci-lint/releases/download/v2.11.4/golangci-lint-2.11.4-linux-amd64.tar.gz'
+    checksum = 'sha256:200c5b7503f67b59a6743ccf32133026c174e272b930ee79aa2aa6f37aca7ef1'
+    size = 15265779
+    strip = 1
+
 [[tool]]
   name = 'goreleaser'
   spec = '2.15.4'
@@ -50,6 +66,14 @@
     url = 'https://github.com/goreleaser/goreleaser/releases/download/v2.15.4/goreleaser_Darwin_arm64.tar.gz'
     checksum = 'sha256:d9cd0978d64686eb54e53e9f08b400edc8b1f9034f98fca43ec7a3f641327081'
     size = 24856987
+    strip = 0
+
+  [[tool.artifacts]]
+    platform = 'linux'
+    arch = 'amd64'
+    url = 'https://github.com/goreleaser/goreleaser/releases/download/v2.15.4/goreleaser_Linux_x86_64.tar.gz'
+    checksum = 'sha256:aae00c71a4a6d55e08cce9273a1516bdce33c1e07cffb7e502fa6fec4377dede'
+    size = 26056154
     strip = 0
 
 [packages]
