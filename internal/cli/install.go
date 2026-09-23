@@ -133,7 +133,8 @@ var installCmd = &cobra.Command{
 		if len(changes) == 0 && lockExisted {
 			ui.Print(ui.Success, "lockfile up to date", "")
 		} else {
-			resolved, err := buildResolved(changes, client, pkgs)
+			platforms := unionPlatforms(lock.Meta.Platforms, []string{runtime.GOOS + "-" + runtime.GOARCH})
+			resolved, err := buildResolved(changes, client, pkgs, platforms)
 			if err != nil {
 				ui.Print(ui.Fail, "resolving lockfile entries", err.Error())
 				os.Exit(1)
@@ -235,13 +236,12 @@ func readVenvVersion(cfgPath string) (string, error) {
 // (*Lockfile).Apply can upsert each into the right slice. Removed changes need
 // no lookup. MVP records only the current platform's artifact; cross-platform
 // population is a follow-up.
-func buildResolved(changes []lockfile.Change, client *registry.Client, pkgs map[string]pkglock.Result) (lockfile.Resolved, error) {
+func buildResolved(changes []lockfile.Change, client *registry.Client, pkgs map[string]pkglock.Result, platforms []string) (lockfile.Resolved, error) {
 	res := lockfile.Resolved{
 		Languages: map[string]lockfile.Entry{},
 		Tools:     map[string]lockfile.Entry{},
 		Packages:  map[string]lockfile.EcoLockRef{},
 	}
-	platform, arch := runtime.GOOS, runtime.GOARCH
 
 	for _, c := range changes {
 		if c.Kind == lockfile.Removed {
@@ -264,25 +264,33 @@ func buildResolved(changes []lockfile.Change, client *registry.Client, pkgs map[
 				kind = "tools"
 			}
 
-			art, _, err := client.Lookup(kind, name, version, platform, arch)
+			arts, skipped, err := resolvePlatform(client, kind, name, version, platforms)
 			if err != nil {
 				return res, fmt.Errorf("looking up %s %q: %w", kind, c.Name, err)
 			}
 
+			// The registry has no build of this version for a platform the lock
+			// already covers. That is a platform the team demonstrably uses, so
+			// pinning this version would hand a teammate something they cannot
+			// install. Fail here, where the person choosing the version can still
+			// choose a different one, rather than warn and let them find out.
+			for _, p := range skipped {
+				ui.Print(ui.Warning, c.Name, "no artifact for "+p)
+			}
+			if len(skipped) > 0 && !allowPartial {
+				return res, fmt.Errorf(
+					"%s %q version %s has no build for %s\n"+
+						"  compendium.lock already covers that platform, so a teammate there could not install it\n"+
+						"  hint: choose a version the registry builds for every platform, or pass --allow-partial",
+					kind, c.Name, version, strings.Join(skipped, ", "))
+			}
+
 			entry := lockfile.Entry{
-				Name:    c.Name,
-				Spec:    c.NewSpec,
-				Version: version,
-				Source:  lockfile.SourceRegistry,
-				Artifacts: []lockfile.Artifact{{
-					Platform:    platform,
-					Arch:        arch,
-					URL:         art.URL,
-					Checksum:    art.Checksum,
-					Size:        art.Size,
-					Strip:       art.Strip,
-					LinkBinFrom: art.LinkBinFrom,
-				}},
+				Name:      c.Name,
+				Spec:      c.NewSpec,
+				Version:   version,
+				Source:    lockfile.SourceRegistry,
+				Artifacts: arts,
 			}
 
 			if c.Section == lockfile.SectionLanguage {
@@ -306,6 +314,39 @@ func buildResolved(changes []lockfile.Change, client *registry.Client, pkgs map[
 	}
 
 	return res, nil
+}
+
+func resolvePlatform(client *registry.Client, kind, name, version string, platforms []string) ([]lockfile.Artifact, []string, error) {
+	platformArt := make([]lockfile.Artifact, 0, len(platforms))
+	var skippedPlatform []string
+	for _, p := range platforms {
+		platform, arch, ok := strings.Cut(p, "-")
+		if !ok {
+			return nil, nil, fmt.Errorf(
+				"meta.platforms contains a malformed entry %q (expected \"<platform>-<arch>\")\n"+
+					"  hint: fix it in compendium.lock, or delete the file and re-run install",
+				p,
+			)
+		}
+		art, _, err := client.Lookup(kind, name, version, platform, arch)
+		if errors.Is(err, registry.ErrPlatformUnavailable) {
+			skippedPlatform = append(skippedPlatform, p)
+		} else if err != nil {
+			return nil, nil, err
+		} else {
+			platformArt = append(platformArt, lockfile.Artifact{
+				Platform:    platform,
+				Arch:        arch,
+				URL:         art.URL,
+				Checksum:    art.Checksum,
+				Size:        art.Size,
+				Strip:       art.Strip,
+				LinkBinFrom: art.LinkBinFrom,
+			})
+		}
+	}
+
+	return platformArt, skippedPlatform, nil
 }
 
 // pkgDigests narrows resolvePackages' output to what Diff needs: ecosystem ->
@@ -362,8 +403,14 @@ func unionPlatforms(base, add []string) []string {
 
 var frozen bool
 
+// allowPartial lets an install proceed when the registry has no build of a
+// requested version for a platform the lock already covers. Off by default:
+// silently narrowing platform coverage is the failure ION-29 exists to prevent.
+var allowPartial bool
+
 func init() {
 	rootCmd.AddCommand(installCmd)
 	installCmd.Flags().BoolVar(&frozen, "frozen", false, "fail if compendium.toml has drifted from compendium.lock")
 	installCmd.Flags().BoolVar(&frozen, "locked", false, "alias for --frozen")
+	installCmd.Flags().BoolVar(&allowPartial, "allow-partial", false, "allow a version with no build for a platform the lock already covers")
 }

@@ -2,6 +2,7 @@ package registry
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -278,6 +279,8 @@ func TestClientLookupUnknownVersion(t *testing.T) {
 
 	if _, _, err := c.Lookup("languages", "go", "99.0.0", "linux", "amd64"); err == nil {
 		t.Fatal("expected error for unknown version, got nil")
+	} else if errors.Is(err, ErrPlatformUnavailable) {
+		t.Fatalf("not expected ErrPlatformUnavailable")
 	}
 }
 
@@ -292,6 +295,8 @@ func TestClientLookupUnknownPlatform(t *testing.T) {
 
 	if _, _, err := c.Lookup("languages", "go", "1.24.1", "windows", "amd64"); err == nil {
 		t.Fatal("expected error for unknown platform, got nil")
+	} else if !errors.Is(err, ErrPlatformUnavailable) {
+		t.Fatalf("expected ErrPlatformUnavailable, got %v", err)
 	}
 }
 
@@ -306,6 +311,8 @@ func TestClientLookupUnknownArch(t *testing.T) {
 
 	if _, _, err := c.Lookup("languages", "clang", "22.1.3", "linux", "arm64"); err == nil {
 		t.Fatal("expected error for unknown arch, got nil")
+	} else if !errors.Is(err, ErrPlatformUnavailable) {
+		t.Fatalf("expected ErrPlatformUnavailable, got %v", err)
 	}
 }
 

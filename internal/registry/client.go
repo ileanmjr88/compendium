@@ -2,6 +2,7 @@ package registry
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,6 +14,8 @@ import (
 )
 
 const PublicIndexURL = "https://raw.githubusercontent.com/ileanmjr88/compendium-registry/main/index.json"
+
+var ErrPlatformUnavailable = errors.New("platform unavailable")
 
 type Client struct {
 	index    *Index
@@ -152,11 +155,11 @@ func (c *Client) Lookup(kind, name, version, platform, arch string) (*Artifact, 
 	}
 	archMap, ok := versionEntry.Platforms[platform]
 	if !ok {
-		return nil, nil, fmt.Errorf("unknown platform: %s for %s %s", platform, name, version)
+		return nil, nil, fmt.Errorf("unknown platform: %s for %s %s: %w", platform, name, version, ErrPlatformUnavailable)
 	}
 	artifact, ok := archMap[arch]
 	if !ok {
-		return nil, nil, fmt.Errorf("unknown arch: %s for %s %s on %s", arch, name, version, platform)
+		return nil, nil, fmt.Errorf("unknown arch: %s for %s %s on %s: %w", arch, name, version, platform, ErrPlatformUnavailable)
 	}
 
 	return &artifact, versionEntry.Depends, nil
