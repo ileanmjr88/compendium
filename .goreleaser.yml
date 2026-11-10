@@ -5,6 +5,7 @@ project_name: compendium
 before:
   hooks:
     - go mod tidy
+    - make licenses
 
 builds:
   - id: compendium
@@ -28,6 +29,11 @@ archives:
     formats: [tar.gz]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - LICENSE
+      - NOTICE
+      - README.md
+      - third_party_licenses/**/*
 
 checksum:
   name_template: "checksums.txt"

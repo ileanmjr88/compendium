@@ -36,3 +36,7 @@ go.work.sum
 bin/
 build/
 dist/
+
+# License directories
+third_party_licenses/
+
