@@ -1,7 +1,7 @@
 [compendium]
 name = "compendium"
-version = "0.1.0"
-min_compendium = "dev"
+version = "0.1.2"
+min_compendium = "0.1.2"
 
 [registry]
 source = "public"
