@@ -1,5 +1,6 @@
 VERSION ?= $(shell cat VERSION 2>/dev/null || echo dev)
 COMMIT  := $(shell git rev-parse --short HEAD)
+ADDLICENSE_VERSION := v1.2.0
 GO_LICENSES_VERSION := v1.6.0
 MODULE := github.com/ileanmjr88/compendium
 
@@ -10,7 +11,7 @@ LDFLAGS := -ldflags "\
 	-X github.com/ileanmjr88/compendium/internal/buildinfo.Commit=$(COMMIT)"
 
 .PHONY: build test coverage run fmt vet lint clean release release-check \
-	licenses licenses-check licenses-install help
+	licenses licenses-check licenses-install headers-install headers-check help
 
 # Build the Go application
 build:
@@ -74,6 +75,11 @@ licenses-check:
 licenses:
 	go-licenses save ./... --save_path=third_party_licenses --force --ignore $(MODULE)
 
+headers-install:
+	go install github.com/google/addlicense@$(ADDLICENSE_VERSION)
+
+headers-check:
+	addlicense -check -ignore '**/testdata/**' .
 
 # Clean build artifacts
 clean:
@@ -95,5 +101,7 @@ help:
 	@echo "  make licenses         - Save dependency licenses to third_party_licenses/"
 	@echo "  make licenses-check   - Fail on forbidden or restricted dependency licenses"
 	@echo "  make licenses-install - Install the pinned go-licenses version"
+	@echo "  make headers-check    - Fail on any file missing the license header"
+	@echo "  make headers-install  - Install the pinned addlicense version"
 	@echo "  make clean            - Clean build artifacts"
 	@echo "  make help             - Display this help message"
