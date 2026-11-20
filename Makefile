@@ -79,7 +79,7 @@ headers-install:
 	go install github.com/google/addlicense@$(ADDLICENSE_VERSION)
 
 headers-check:
-	addlicense -check -ignore '**/testdata/**' .
+	addlicense -check -ignore '**/testdata/**' -ignore '**/*.lock' .
 
 # Clean build artifacts
 clean:
