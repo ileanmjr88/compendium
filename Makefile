@@ -1,5 +1,8 @@
 VERSION ?= $(shell cat VERSION 2>/dev/null || echo dev)
 COMMIT  := $(shell git rev-parse --short HEAD)
+ADDLICENSE_VERSION := v1.2.0
+GO_LICENSES_VERSION := v1.6.0
+MODULE := github.com/ileanmjr88/compendium
 
 export CGO_ENABLED := 0
 
@@ -7,7 +10,8 @@ LDFLAGS := -ldflags "\
 	-X github.com/ileanmjr88/compendium/internal/buildinfo.Version=$(VERSION) \
 	-X github.com/ileanmjr88/compendium/internal/buildinfo.Commit=$(COMMIT)"
 
-.PHONY: build test coverage run fmt vet lint clean release release-check help
+.PHONY: build test coverage run fmt vet lint clean release release-check \
+	licenses licenses-check licenses-install headers-install headers-check help
 
 # Build the Go application
 build:
@@ -59,22 +63,45 @@ release:
 release-check:
 	goreleaser check
 
+# Install the pinned go-licenses version (used by CI)
+licenses-install:
+	go install github.com/google/go-licenses@$(GO_LICENSES_VERSION)
+
+# Fail if any dependency has a forbidden or restricted license
+licenses-check:
+	go-licenses check ./... --disallowed_types=forbidden,restricted --ignore $(MODULE)
+
+# Copy dependency licenses into third_party_licenses/ (shipped in release archives)
+licenses:
+	go-licenses save ./... --save_path=third_party_licenses --force --ignore $(MODULE)
+
+headers-install:
+	go install github.com/google/addlicense@$(ADDLICENSE_VERSION)
+
+headers-check:
+	addlicense -check -ignore '**/testdata/**' .
+
 # Clean build artifacts
 clean:
-	rm -rf bin/ dist/
+	rm -rf bin/ dist/ third_party_licenses/
 	go clean
 
 # Display help
 help:
 	@echo "Available targets:"
-	@echo "  make build   - Build the Go application"
-	@echo "  make test    - Run tests"
-	@echo "  make run     - Run the application"
-	@echo "  make fmt     - Format the Go code"
-	@echo "  make vet     - Vet the Go code"
-	@echo "  make lint    - Lint the Go code"
-	@echo "  make coverage      - Test coverage report"
-	@echo "  make release       - Local goreleaser dry run (cross-compile, no publish)"
-	@echo "  make release-check - Validate .goreleaser.yml"
-	@echo "  make clean         - Clean build artifacts"
-	@echo "  make help          - Display this help message"
+	@echo "  make build            - Build the Go application"
+	@echo "  make test             - Run tests"
+	@echo "  make run              - Run the application"
+	@echo "  make fmt              - Format the Go code"
+	@echo "  make vet              - Vet the Go code"
+	@echo "  make lint             - Lint the Go code"
+	@echo "  make coverage         - Test coverage report"
+	@echo "  make release          - Local goreleaser dry run (cross-compile, no publish)"
+	@echo "  make release-check    - Validate .goreleaser.yml"
+	@echo "  make licenses         - Save dependency licenses to third_party_licenses/"
+	@echo "  make licenses-check   - Fail on forbidden or restricted dependency licenses"
+	@echo "  make licenses-install - Install the pinned go-licenses version"
+	@echo "  make headers-check    - Fail on any file missing the license header"
+	@echo "  make headers-install  - Install the pinned addlicense version"
+	@echo "  make clean            - Clean build artifacts"
+	@echo "  make help             - Display this help message"

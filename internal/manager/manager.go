@@ -1,3 +1,6 @@
+// Copyright 2026 Ilean Monterrubio Jr
+// SPDX-License-Identifier: Apache-2.0
+
 package manager
 
 import "github.com/ileanmjr88/compendium/internal/config"

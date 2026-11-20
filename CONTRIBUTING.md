@@ -97,6 +97,7 @@ and the current behavior makes it hard because Z."
 - Include tests for new behavior or bug fixes.
 - Run `make fmt && make vet && make lint && make test` locally before
   opening the PR.
+- Sign off every commit (`git commit -s`). See [Sign your commits](#sign-your-commits).
 - Reference the issue number if there is one.
 - Update docs in the [`compendium-docs`](https://github.com/ileanmjr88/compendium-docs)
   repo if the change affects user-facing behavior. Link the docs PR from
@@ -112,7 +113,30 @@ go to sibling repos:
 - **Improving the docs site or written guides:**
   [`compendium-docs`](https://github.com/ileanmjr88/compendium-docs).
 
+## Sign your commits
+
+Compendium uses the [Developer Certificate of Origin](https://developercertificate.org/)
+(DCO). By signing off a commit, you certify that you wrote the change or
+otherwise have the right to submit it under the project's license.
+
+Add the sign-off with `-s`:
+
+```bash
+git commit -s -m "fix: handle empty checksums.txt without panicking"
+```
+
+This appends a line to the commit message:
+
+```
+Signed-off-by: Your Name <you@example.com>
+```
+
+Use your real name and the email tied to your Git identity. Forgot it?
+Fix the last commit with `git commit --amend -s --no-edit`, or a whole
+branch with `git rebase --signoff develop`. PRs with unsigned commits
+won't be merged.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under
-the same GPL-3.0-or-later as the rest of the project. See [LICENSE](LICENSE).
+the Apache-2.0 license, the same as the rest of the project. See [LICENSE](LICENSE).

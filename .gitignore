@@ -39,3 +39,7 @@ dist/
 
 # Scratch files
 temp
+
+# License directories
+third_party_licenses/
+

@@ -1,4 +1,6 @@
-// Package cli -> commands used by the developer to interact with compendium
+// Copyright 2026 Ilean Monterrubio Jr
+// SPDX-License-Identifier: Apache-2.0
+
 package cli
 
 import "github.com/spf13/cobra"

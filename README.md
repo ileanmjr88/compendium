@@ -72,8 +72,12 @@ make lint       # runs golangci-lint
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). The source stays open: anyone can use, modify,
+[Apache-2.0](LICENSE).
+
+### v0.1.1 and earlier
+
+GPL-3.0-or-later. The source stays open: anyone can use, modify,
 or redistribute Compendium, but modifications and derivative works must be
-released under the same license. Running the tool carries no obligations.
+released under the same license.
 
 Built by [Ilean Monterrubio Jr](https://ilean.me).
