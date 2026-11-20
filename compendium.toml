@@ -17,4 +17,4 @@ golangci-lint = "2.11.4"
 goreleaser = "2.15.4"
 
 [packages]
-go = "go.mod"
+go = "go.sum"
